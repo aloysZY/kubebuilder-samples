@@ -33,7 +33,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-	//+kubebuilder:scaffold:imports
+
+	aloystechv1 "aloys.tech/api/v1"
+	"aloys.tech/internal/controller"
+	// +kubebuilder:scaffold:imports
 )
 
 var (
@@ -41,10 +44,12 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
+// 每个版本的资源生成的过程中， 都会包含 groupversion_info.go、zz_generated.deepcopy.go 文件，它们的作用是什么呢? 这与 Scheme 模块的原理有关，即 Scheme 通过这 2 个文件实现了 CRD 的注册及资源的拷贝
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	//+kubebuilder:scaffold:scheme
+	utilruntime.Must(aloystechv1.AddToScheme(scheme))
+	// +kubebuilder:scaffold:scheme
 }
 
 func main() {
@@ -118,7 +123,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	//+kubebuilder:scaffold:builder
+	if err = (&controller.AppReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "App")
+		os.Exit(1)
+	}
+	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
