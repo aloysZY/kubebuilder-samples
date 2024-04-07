@@ -40,14 +40,16 @@ import (
 )
 
 var (
+	// scheme 它提供了 Kinds 与对应的 Go Type 的映射，即给定了 Go Type，就能够知道它的 GKV(Group Kind Verision)，这也是 Kubernetes 所有资源的注册模式
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
 
 // 每个版本的资源生成的过程中， 都会包含 groupversion_info.go、zz_generated.deepcopy.go 文件，它们的作用是什么呢? 这与 Scheme 模块的原理有关，即 Scheme 通过这 2 个文件实现了 CRD 的注册及资源的拷贝
 func init() {
+	// Scheme 绑定内置资源
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
+	// Scheme 绑定自建 CRD
 	utilruntime.Must(aloystechv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
@@ -94,8 +96,11 @@ func main() {
 	webhookServer := webhook.NewServer(webhook.Options{
 		TLSOpts: tlsOpts,
 	})
-
+	// 在 NewManager 的方法中，实际是根据传入的参数进行 Manager 对象的 Scheme、Cache、Client 等模块的初始化构建
+	// Client 实现对 CRD 的“增、删、改、查”, 其中查询的逻辑是通过本地的 Cache 模块实现的
+	// 初始化 Manager 对象构建出来后，通过 Manager 的 Cache 监听 CRD，一旦 CRD 在集群中创建了，Cache 监听 到发生了变化，就会触发 Controller 的协调程序 Reconcile 工作
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		// utilruntime.Must(aloystechv1.AddToScheme(scheme)) 这里的 Scheme 已经绑定了自建 CRD
 		Scheme: scheme,
 		Metrics: metricsserver.Options{
 			BindAddress:   metricsAddr,
@@ -118,14 +123,19 @@ func main() {
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
 	})
+	// 初始化失败，推出主程序
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
+	// 初始化controller.AppReconciler
 	if err = (&controller.AppReconciler{
+		// 将 Manager 的 Client 传给 AppReconciler， (r *AppReconciler) Reconciler方法就可以使用client
 		Client: mgr.GetClient(),
+		// 将 Manager 的 Scheme 传给 AppReconciler， get/list获取集群信息默认是先查询Scheme
 		Scheme: mgr.GetScheme(),
+		// 并且调用 SetupWithManager 方法传入 Manager 进行 Controller 的初始化
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "App")
 		os.Exit(1)
@@ -142,6 +152,9 @@ func main() {
 	}
 
 	setupLog.Info("starting manager")
+	// MGR 的类型是一个 Interface，底层实际上调用的是 controllerManager 的 Start 方法。 Start 方法的主要逻辑就是启动 Cache、Controller，将整个事件流运转起来,
+	// 先初始化 Cache(Cluster类型)，再启动 Controller
+	// Cache 的核心逻辑是初始化内部所有的 Informer，初始化 Informer 后就创建了 Reflector 和内部 Controller，Reflector 和 Controller 两个组件是一个“生产者—消费者” 模型，Reflector 负责监听 APIServer 上指定的 GVK 资源的变化，然后将变更写入 delta 队列中，Controller 负责消费这些变更的事件，然后更新本地 Indexer，最后计算出是创建、 更新，还是删除事件，推给我们之前注册的 Watch Handler
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

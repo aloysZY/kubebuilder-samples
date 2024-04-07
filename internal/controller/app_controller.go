@@ -19,12 +19,11 @@ package controller
 import (
 	"context"
 
+	aloystechv1 "aloys.tech/api/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	aloystechv1 "aloys.tech/api/v1"
 )
 
 // AppReconciler reconciles a App object
@@ -46,20 +45,47 @@ type AppReconciler struct {
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.0/pkg/reconcile
-// 在这个函数的空白处填入逻辑完成对应的 CRD 构造工作
+// Reconcile 的 含义，用户自定义了 CRD 结构，而在 Kubernetes 集群中，想要实现这样的 CRD 结构定义， Reconcile 需要协调逻辑
 func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
-
-	// 即通过
 	// TODO(user): your logic here
-
+	// Requeue 告诉 Controller 是否需要重新将对象加入队列（从新调用，不是直接重试），默认为 False
+	// RequeueAfter 大于 0 表示 Controller 需要在设置的时间间隔后，将对象重新加入队列 注意，当设置了RequeueAfter，就表示Requeue为True，即无须RequeueAfter与 Requeue=True 被同时设置
+	// ctrl.Result{Requeue: true, RequeueAfter: 1}
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
-// 用于 CRD Controller 的安装。安装完成后，CRD Controller 才能运行
+// CRD 的 Controller 初始化的核心代码是 SetupWithManager 方法，借助这个方法，就可以完成 CRD 在 Manager 对象中的安装，最后通过 Manager 对象的 start 方法来完成 CRD Controller 的运行
+// 在 Controller 初始化的过程中，借助了 Options 参数对象中设计的 Reconciler 对象，并将 其传递给了 Controller 对象的 do 字段。所以当我们调用 SetupWithManager 方法的时候， 不仅完成了 Controller 的初始化，还完成了 Controller 监听资源的注册与发现过程，同时 将 CRD 的必要实现方法(Reconcile 方法)进行了再现
 func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// NewControllerManagedBy 初始化 Builder 对象 mgr 字段。
 	return ctrl.NewControllerManagedBy(mgr).
+		// Builder 关联 CRD API 定义的 Scheme 信息，从而得知 CRD 的 Controller 需要监听的 CRD 类型、版本等信息
+		// Controller需要监听资源在这里配置 Owns().
 		For(&aloystechv1.App{}).
+		// WithOptions(controller.Options{ 可以传入Controller初始化参数
+		// 	MaxConcurrentReconciles: 0, // Reconciles 最大并发数
+		// 	CacheSyncTimeout:        0, // 是指设置等待同步缓存的时间限制。默认2分钟
+		// 	RecoverPanic:            nil,
+		// 	NeedLeaderElection:      nil, // 控制器是否需要使用leader选举。默认为true，
+		// 	Reconciler:              nil,  //定义了 Reconcile(
+		// 	RateLimiter:             nil, // 用于限制请求排队的频率。默认为MaxOfRateLimiter，它具有整体和每个项目的速率限制。整体是一个令牌桶，每项是指数级的。
+		// 	LogConstructor:          nil, //用于记录日志的日志对象。
+		// }).
+		// Builder 初始化最重要的两个步骤是doController 和 doWatch
+		// doController 是完成 Controller 对象的构建，从而实现基于 Scheme 和 Controller 对象的 CRD 的监听流程
+		// predicate.Predicate 是 Controller.Watch 的参数，是用于过滤事件的 过滤器，过滤器可以复用或者组合
+		// Owns监听Object，并将Object对应的Owner加入队列。例如，例子中监听Pod对象，根据 Pod 的 Owner 将 Pod 所属的 ReplicaSet 资源加入队列
+		// Owns(&corev1.Pod{}).
+		// Watches监听指定资源，使用指定方法对事件进行处理。建议使用For()和Owns()，而不是直接使用 Watches() 方法
+		// Watches().
+		// 设置事件的过滤器，选择部分create/update/delete/generic事件触发同步,只监听实现的方法
+		// WithEventFilter(predicate.Predicate()).
+		// Named设置Controller的名称，Controller的名称会出现在监控、日志等信息中。在默认情况下，Controller 使用小写字母命名。
 		Complete(r)
 }
+
+// Complete--blder.Build(r)--blder.doController(r)-- blder.ctrl, err = newController(controllerName, blder.mgr, ctrlOptions)这个的返回值 复制给了blder.ctr
+//  newController(controllerName--newController = controller.New-- New(name string, mgr manager.Manager--NewUnmanaged(name, mgr, options) 初始化Controller --&controller.Controller{  Do: options.Reconciler, 这个do字段就像（Reconciler reconcile.Reconciler） 这是一个接口类型 type Reconciler interface
+// (r *AppReconciler) Reconcile 我们自己的crd实现了这个接口
