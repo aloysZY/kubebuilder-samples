@@ -69,6 +69,7 @@ func main() {
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -123,7 +124,7 @@ func main() {
 		// after the manager stops then its usage might be unsafe.
 		// LeaderElectionReleaseOnCancel: true,
 	})
-	// 初始化失败，推出主程序
+	// 初始化失败，退出主程序
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)

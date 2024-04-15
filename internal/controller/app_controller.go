@@ -23,7 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 )
 
 // AppReconciler reconciles a App object
@@ -47,11 +47,15 @@ type AppReconciler struct {
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.0/pkg/reconcile
 // Reconcile 的 含义，用户自定义了 CRD 结构，而在 Kubernetes 集群中，想要实现这样的 CRD 结构定义， Reconcile 需要协调逻辑
 func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
-	// TODO(user): your logic here
+	// _ = log.FromContext(ctx)
 	// Requeue 告诉 Controller 是否需要重新将对象加入队列（从新调用，不是直接重试），默认为 False
 	// RequeueAfter 大于 0 表示 Controller 需要在设置的时间间隔后，将对象重新加入队列 注意，当设置了RequeueAfter，就表示Requeue为True，即无须RequeueAfter与 Requeue=True 被同时设置
 	// ctrl.Result{Requeue: true, RequeueAfter: 1}
+	// TODO(user): your logic here
+
+	// logger := log.FromContext(ctx)
+	// app := &aloystechv1.App{}
+
 	return ctrl.Result{}, nil
 }
 
@@ -64,10 +68,11 @@ func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// Builder 关联 CRD API 定义的 Scheme 信息，从而得知 CRD 的 Controller 需要监听的 CRD 类型、版本等信息
 		// Controller需要监听资源在这里配置 Owns().
 		For(&aloystechv1.App{}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
 		// WithOptions(controller.Options{ 可以传入Controller初始化参数
 		// 	MaxConcurrentReconciles: 0, // Reconciles 最大并发数
 		// 	CacheSyncTimeout:        0, // 是指设置等待同步缓存的时间限制。默认2分钟
-		// 	RecoverPanic:            nil,
+		// 	RecoverPanic:            nil, reconcile异常时是否自动恢复
 		// 	NeedLeaderElection:      nil, // 控制器是否需要使用leader选举。默认为true，
 		// 	Reconciler:              nil,  //定义了 Reconcile(
 		// 	RateLimiter:             nil, // 用于限制请求排队的频率。默认为MaxOfRateLimiter，它具有整体和每个项目的速率限制。整体是一个令牌桶，每项是指数级的。
@@ -83,6 +88,33 @@ func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		// 设置事件的过滤器，选择部分create/update/delete/generic事件触发同步,只监听实现的方法
 		// WithEventFilter(predicate.Predicate()).
 		// Named设置Controller的名称，Controller的名称会出现在监控、日志等信息中。在默认情况下，Controller 使用小写字母命名。
+		// WithEventFilter(predicate.Funcs{
+		//         CreateFunc: func(_ event.CreateEvent) bool {
+		//            return false
+		//         },
+		//      }).
+		// Watches(source.Source, handler.EventHandler, ...WatchesOption)
+		// For(client.Object,...ForOption)
+		// Owns(client.Object,...OwnsOption)
+		// 其中For和Owns是等同与Watches。For的第二个参数默认为EnqueueRequestForObject。Owns的第二个参数默认为EnqueueRequestForOwner
+		//
+		// 方法参数说明
+		//
+		// Source：第一个参数，kubernetes对象类型
+		//
+		// EventHandler：第二个参数，从DeltaFIFO中取出来的数据，在进入工作队列前进行的操作。EnqueueRequestForObject表示不做任何处理，直接进入工作队列。EnqueueRequestForOwner需要和For方法配合使用，Owns中的对象中ownerReference引用的对象类型需要和For中定义的对象类型相同，且ownerReference中的controller为true。
+		//
+		// Predicate：第三个参数，从工作队列取出来的数据，在进行reconcile处理前进行的操作。通过builder的WithEventFilter可以给所有的对象添加Predicate。
+		//
+		// EventHandler和Predicate方法说明
+		//
+		// Create：kubernetes对象新增时调用
+		//
+		// Update：kubernetes对象更新时调用
+		//
+		// Delete：kubernetes对象删除时调用
+		//
+		// Generic：未知的操作。非kubernetes集群的变更事件。在operator中自行使用
 		Complete(r)
 }
 

@@ -23,19 +23,45 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type MyDeployment struct {
+	Image   string `json:"image"`
+	Replace *int32 `json:"replace"`
+}
+
+type MyService struct {
+	Port *int32 `json:"port"`
+}
+
+type MyIngress struct {
+	IsEnable bool   `json:"is_enable,omitempty"`
+	Host     string `json:"host,omitempty"`
+	Path     string `json:"path,omitempty"`
+}
+
+type healthyReplicas struct {
+	Min *int32 `json:"min,omitempty"`
+	Max *int32 `json:"max,omitempty"`
+}
+
 // AppSpec defines the desired state of App
+// +kubebuilder:subresource:status
 type AppSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of App. Edit app_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Foo string `json:"foo,omitempty"`
+	Deployment      MyDeployment    `json:"deployment"`
+	Service         MyService       `json:"service"`
+	Ingress         MyIngress       `json:"ingress,omitempty"`
+	healthyReplicas healthyReplicas `json:"healthy_replicas,omitempty"`
 }
 
 // AppStatus defines the observed state of App
 type AppStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	HealthyReplicas *int32 `json:"healthy_replicas,omitempty"`
 }
 
 // +kubebuilder:object:root=true
