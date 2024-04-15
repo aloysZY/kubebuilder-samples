@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"fmt"
 	"text/template"
 
 	aloystechv1 "aloys.tech/api/v1"
@@ -26,6 +27,11 @@ func parseTemplate(templateName string, app *aloystechv1.App) []byte {
 }
 
 func NewDeployment(app *aloystechv1.App) *appv1.Deployment {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Printf("recover NewDeployment panic:%v\n", r)
+		}
+	}()
 	d := &appv1.Deployment{}
 	err := yaml.Unmarshal(parseTemplate("deployment", app), d)
 	if err != nil {

@@ -125,7 +125,7 @@ func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				return false
 			},
 			DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
-				setupLog.Info("The Deployment has been deleted,", "DeploymentName", deleteEvent.Object.GetName())
+				setupLog.Info("The Deployment has been deleted,", "DeploymentName", deleteEvent.Object.GetName(), "namespace", deleteEvent.Object.GetNamespace())
 				return true
 			},
 			UpdateFunc: func(updateEvent event.UpdateEvent) bool {
@@ -189,8 +189,9 @@ func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *AppReconciler) reconcileDeployment(ctx context.Context, app *aloystechv1.App) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-	// 创建使用模版，是为了可以在模块添加一些亲和性，资源请求这些配置,这步在前面是想判断一下deploy的内容是否需要更新
+	deployName := app.Name + "-deploy"
+	logger := log.FromContext(ctx).WithName("reconcileDeployment").WithName(deployName)
+	// 创建使用模版，是为了可以在模块添加一些亲和性，资源请求这些配置,这步骤在前面是想判断一下deploy的内容是否需要更新
 	appDeploy := utils.NewDeployment(app)
 	if err := ctrl.SetControllerReference(app, appDeploy, r.Scheme); err != nil {
 		logger.Error(err, "Failed to set the controller reference for the app deployment,will requeue after a short time.")
@@ -200,7 +201,7 @@ func (r *AppReconciler) reconcileDeployment(ctx context.Context, app *aloystechv
 	dp := &appsv1.Deployment{}
 	err := r.Get(ctx, types.NamespacedName{
 		Namespace: app.Namespace,
-		Name:      app.Name + "-deploy",
+		Name:      deployName,
 	}, dp)
 	if err == nil {
 		logger.Info("The Deployment already exists.")
@@ -212,11 +213,10 @@ func (r *AppReconciler) reconcileDeployment(ctx context.Context, app *aloystechv
 			// 	appDeploy.Spec.Replicas = dp.Spec.Replicas
 			// }
 			if err := r.Update(ctx, appDeploy); err != nil {
-				logger.Error(err, "Failed to update the deployment.", "DeploymentName", appDeploy.Name)
+				logger.Error(err, "Failed to update the deployment.")
 				return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
 			}
-			logger.Info("The Deployment updated.", "DeploymentName", appDeploy.Name)
-			return ctrl.Result{}, nil
+			logger.Info("The Deployment updated.")
 		}
 		// 判断deploy status 是否需要更新
 		if !reflect.DeepEqual(dp.Status, app.Status.Workflow) {
@@ -227,7 +227,6 @@ func (r *AppReconciler) reconcileDeployment(ctx context.Context, app *aloystechv
 				return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
 			}
 			logger.Info("The Deployment status has been updated.")
-			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, nil
 	}
@@ -236,11 +235,12 @@ func (r *AppReconciler) reconcileDeployment(ctx context.Context, app *aloystechv
 		logger.Error(err, "Failed to get the Deployment,will requeue after a short time.")
 		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
 	}
+	logger.Info("The Deployment start creating.")
 	if err := r.Create(ctx, appDeploy); err != nil {
 		logger.Error(err, "Failed to create the deployment,will requeue after a short time.")
 		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
 	}
-	logger.Info("The Deployment status has been created.")
+	logger.Info("The Deployment has been created.")
 	return ctrl.Result{}, nil
 }
 
