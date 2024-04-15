@@ -18,13 +18,25 @@ package controller
 
 import (
 	"context"
+	"reflect"
+	"time"
 
 	aloystechv1 "aloys.tech/api/v1"
+	"aloys.tech/internal/utils"
+	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
+
+const GenericRequeueDuration = 1 * time.Minute
 
 // AppReconciler reconciles a App object
 type AppReconciler struct {
@@ -53,9 +65,31 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// ctrl.Result{Requeue: true, RequeueAfter: 1}
 	// TODO(user): your logic here
 
-	// logger := log.FromContext(ctx)
-	// app := &aloystechv1.App{}
+	logger := log.FromContext(ctx)
 
+	// 声明一个app实例来接受cr
+	app := &aloystechv1.App{}
+	if err := r.Get(ctx, req.NamespacedName, app); err != nil {
+		// 找不到的错误不需要特殊处理，cr被删除，直接结束本次调用
+		if errors.IsNotFound(err) {
+			logger.Info("The app is not found.")
+			// 这里应该日志记录删除相关信息
+			return ctrl.Result{}, nil
+		}
+		// 其他错误类型，提示报错，然后1分钟后重试
+		logger.Error(err, "Failed to get the app,will requeue after a short time.")
+		return ctrl.Result{RequeueAfter: 1 * time.Minute}, err
+	}
+
+	var result ctrl.Result
+	var err error
+	result, err = r.reconcileDeployment(ctx, app)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile Deployment.")
+		return result, err
+	}
+
+	logger.Info("All reconcile have been reconciled.")
 	return ctrl.Result{}, nil
 }
 
@@ -63,11 +97,47 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 // CRD 的 Controller 初始化的核心代码是 SetupWithManager 方法，借助这个方法，就可以完成 CRD 在 Manager 对象中的安装，最后通过 Manager 对象的 start 方法来完成 CRD Controller 的运行
 // 在 Controller 初始化的过程中，借助了 Options 参数对象中设计的 Reconciler 对象，并将 其传递给了 Controller 对象的 do 字段。所以当我们调用 SetupWithManager 方法的时候， 不仅完成了 Controller 的初始化，还完成了 Controller 监听资源的注册与发现过程，同时 将 CRD 的必要实现方法(Reconcile 方法)进行了再现
 func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	setupLog := ctrl.Log.WithName("setup")
 	// NewControllerManagedBy 初始化 Builder 对象 mgr 字段。
 	return ctrl.NewControllerManagedBy(mgr).
 		// Builder 关联 CRD API 定义的 Scheme 信息，从而得知 CRD 的 Controller 需要监听的 CRD 类型、版本等信息
 		// Controller需要监听资源在这里配置 Owns().
-		For(&aloystechv1.App{}).
+		For(&aloystechv1.App{}, builder.WithPredicates(predicate.Funcs{
+			CreateFunc: func(createEvent event.CreateEvent) bool {
+				return true
+			},
+			DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
+				setupLog.Info("The App has been deleted,", "AppName", deleteEvent.Object.GetName())
+				return false
+			},
+			UpdateFunc: func(updateEvent event.UpdateEvent) bool {
+				if updateEvent.ObjectNew.GetResourceVersion() == updateEvent.ObjectOld.GetResourceVersion() {
+					return false
+				}
+				if reflect.DeepEqual(updateEvent.ObjectNew.(*aloystechv1.App).Spec.Deployment, updateEvent.ObjectOld.(*aloystechv1.App).Spec.Deployment) {
+					return false
+				}
+				return true
+			},
+		})).
+		Owns(&appsv1.Deployment{}, builder.WithPredicates(predicate.Funcs{
+			CreateFunc: func(createEvent event.CreateEvent) bool {
+				return false
+			},
+			DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
+				setupLog.Info("The Deployment has been deleted,", "DeploymentName", deleteEvent.Object.GetName())
+				return true
+			},
+			UpdateFunc: func(updateEvent event.UpdateEvent) bool {
+				if updateEvent.ObjectNew.GetResourceVersion() == updateEvent.ObjectOld.GetResourceVersion() {
+					return false
+				}
+				if reflect.DeepEqual(updateEvent.ObjectNew.(*appsv1.Deployment).Spec, updateEvent.ObjectOld.(*appsv1.Deployment).Spec) {
+					return false
+				}
+				return true
+			},
+		})).
 		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
 		// WithOptions(controller.Options{ 可以传入Controller初始化参数
 		// 	MaxConcurrentReconciles: 0, // Reconciles 最大并发数
@@ -118,6 +188,61 @@ func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+func (r *AppReconciler) reconcileDeployment(ctx context.Context, app *aloystechv1.App) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+	// 创建使用模版，是为了可以在模块添加一些亲和性，资源请求这些配置,这步在前面是想判断一下deploy的内容是否需要更新
+	appDeploy := utils.NewDeployment(app)
+	if err := ctrl.SetControllerReference(app, appDeploy, r.Scheme); err != nil {
+		logger.Error(err, "Failed to set the controller reference for the app deployment,will requeue after a short time.")
+		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
+	}
+
+	dp := &appsv1.Deployment{}
+	err := r.Get(ctx, types.NamespacedName{
+		Namespace: app.Namespace,
+		Name:      app.Name + "-deploy",
+	}, dp)
+	if err == nil {
+		logger.Info("The Deployment already exists.")
+		// 判断是否需要更新deploy,
+		if !reflect.DeepEqual(dp.Spec, appDeploy.Spec) {
+			// 不相同进行更新,这里想比较一样，看谁的版本谁最新的，进行更新那个版本
+			// 这里是想如果直接修改了deploy，那就按照修改的执行，但是不能确认修改了什么，监听的时候就很杂乱
+			// if dp.GetResourceVersion() > appDeploy.GetResourceVersion() {
+			// 	appDeploy.Spec.Replicas = dp.Spec.Replicas
+			// }
+			if err := r.Update(ctx, appDeploy); err != nil {
+				logger.Error(err, "Failed to update the deployment.", "DeploymentName", appDeploy.Name)
+				return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
+			}
+			logger.Info("The Deployment updated.", "DeploymentName", appDeploy.Name)
+			return ctrl.Result{}, nil
+		}
+		// 判断deploy status 是否需要更新
+		if !reflect.DeepEqual(dp.Status, app.Status.Workflow) {
+			app.Status.Workflow = dp.Status
+			// 更新Status
+			if err := r.Status().Update(ctx, app); err != nil {
+				logger.Error(err, "Failed to update the app status.")
+				return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
+			}
+			logger.Info("The Deployment status has been updated.")
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, nil
+	}
+	// 错误不是NotFound 直接结束本轮
+	if !errors.IsNotFound(err) {
+		logger.Error(err, "Failed to get the Deployment,will requeue after a short time.")
+		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
+	}
+	if err := r.Create(ctx, appDeploy); err != nil {
+		logger.Error(err, "Failed to create the deployment,will requeue after a short time.")
+		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
+	}
+	logger.Info("The Deployment status has been created.")
+	return ctrl.Result{}, nil
+}
+
 // Complete--blder.Build(r)--blder.doController(r)-- blder.ctrl, err = newController(controllerName, blder.mgr, ctrlOptions)这个的返回值 复制给了blder.ctr
-//  newController(controllerName--newController = controller.New-- New(name string, mgr manager.Manager--NewUnmanaged(name, mgr, options) 初始化Controller --&controller.Controller{  Do: options.Reconciler, 这个do字段就像（Reconciler reconcile.Reconciler） 这是一个接口类型 type Reconciler interface
-// (r *AppReconciler) Reconcile 我们自己的crd实现了这个接口
+//  newController(controllerName--newController = controller.New-- New(name string, mgr manager.Manager--NewUnmanaged(name, mgr, options) 初始化Controller --&controller.Controller {  Do: options.Reconciler, 这个do字段就像（Reconciler reconcile.Reconciler） 这是一个接口类型 type Reconciler interface}

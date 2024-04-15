@@ -17,6 +17,8 @@ limitations under the License.
 package v1
 
 import (
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -61,7 +63,9 @@ type AppSpec struct {
 type AppStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	HealthyReplicas *int32 `json:"healthy_replicas,omitempty"`
+	// HealthyReplicas *int32 `json:"healthy_replicas,omitempty"`
+	Workflow appsv1.DeploymentStatus `json:"workflow"`
+	Network  corev1.ServiceStatus    `json:"network"`
 }
 
 // +kubebuilder:object:root=true
