@@ -7,7 +7,6 @@ import (
 	aloystechv1 "aloys.tech/api/v1"
 	"aloys.tech/internal/utils"
 
-	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -25,22 +24,23 @@ func (r *AppReconciler) reconcileHorizontalPodAutoscaler(ctx context.Context, ap
 	}
 	hpa := &autoscalingv2.HorizontalPodAutoscaler{}
 	hpaErr := r.Get(ctx, GetNamespacedName(app.Name, "-hpa", app.Namespace), hpa)
-	dp := &appsv1.Deployment{}
-	deployErr := r.Get(ctx, GetNamespacedName(app.Name, "-deploy", app.Namespace), dp)
+	// dp := &appsv1.Deployment{}
+	// deployErr := r.Get(ctx, GetNamespacedName(app.Name, "-deploy", app.Namespace), dp)
 	if hpaErr == nil {
 		logger.Info("The HPA already exists.")
 		// hpa存在，要判断deploy是否存在,这个逻辑走不到，因为deploy删除后会直接创建
 		// deploy不存在，就要删除hpa
-		if errors.IsNotFound(deployErr) {
-			logger.Info("The Deployment is not found.", "deployment", dp.Name)
-			err := r.Delete(ctx, hpa)
-			if err != nil {
-				logger.Error(err, "Failed to delete the HPA,will requeue after a short time.")
-				return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
-			}
-			logger.Info("The HPA has been deleted.")
-			return ctrl.Result{}, nil
-		}
+		// 删除这个判断逻辑，监听的时候，如果deplo不存在马上创建，就不存在deploy不存在的情况这个代码就执行不到
+		// if errors.IsNotFound(deployErr) {
+		// 	logger.Info("The Deployment is not found.", "deployment", dp.Name)
+		// 	err := r.Delete(ctx, hpa)
+		// 	if err != nil {
+		// 		logger.Error(err, "Failed to delete the HPA,will requeue after a short time.")
+		// 		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
+		// 	}
+		// 	logger.Info("The HPA has been deleted.")
+		// 	return ctrl.Result{}, nil
+		// }
 		// 这时候认为hpa和deploy都存在
 		// 更新hpa
 		if !reflect.DeepEqual(hpa.Spec, appHPA.Spec) {
@@ -65,7 +65,11 @@ func (r *AppReconciler) reconcileHorizontalPodAutoscaler(ctx context.Context, ap
 		return ctrl.Result{}, nil
 	}
 	// 如果hpa不是不存在的错误，并且deployErr 不是不存在
-	if !errors.IsNotFound(hpaErr) && deployErr != nil {
+	// if !errors.IsNotFound(hpaErr) && deployErr != nil {
+	// 	logger.Error(hpaErr, "Failed to get the HPA,will requeue after a short time.")
+	// 	return ctrl.Result{RequeueAfter: GenericRequeueDuration}, hpaErr
+	// }
+	if !errors.IsNotFound(hpaErr) {
 		logger.Error(hpaErr, "Failed to get the HPA,will requeue after a short time.")
 		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, hpaErr
 	}
