@@ -58,7 +58,7 @@ func NewService(app *aloystechv1.App) *corev1.Service {
 	return s
 }
 
-func NewHpa(app *aloystechv1.App) *autoscalingv2.HorizontalPodAutoscaler {
+func NewHorizontalPodAutoscaler(app *aloystechv1.App) *autoscalingv2.HorizontalPodAutoscaler {
 	h := &autoscalingv2.HorizontalPodAutoscaler{}
 	err := yaml.Unmarshal(parseTemplate("hpa", app), h)
 	if err != nil {

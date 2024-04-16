@@ -22,11 +22,10 @@ import (
 	"time"
 
 	aloystechv1 "aloys.tech/api/v1"
-	"aloys.tech/internal/utils"
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -89,6 +88,10 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return result, err
 	}
 
+	result, err = r.reconcileHorizontalPodAutoscaler(ctx, app)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile HorizontalPodAutoscaler.")
+	}
 	logger.Info("All reconcile have been reconciled.")
 	return ctrl.Result{}, nil
 }
@@ -133,6 +136,24 @@ func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					return false
 				}
 				if reflect.DeepEqual(updateEvent.ObjectNew.(*appsv1.Deployment).Spec, updateEvent.ObjectOld.(*appsv1.Deployment).Spec) {
+					return false
+				}
+				return true
+			},
+		})).
+		Owns(&autoscalingv2.HorizontalPodAutoscaler{}, builder.WithPredicates(predicate.Funcs{
+			CreateFunc: func(createEvent event.CreateEvent) bool {
+				return false
+			},
+			DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
+				setupLog.Info("The HPA has been deleted,", "HPAName", deleteEvent.Object.GetName(), "namespace", deleteEvent.Object.GetNamespace())
+				return true
+			},
+			UpdateFunc: func(updateEvent event.UpdateEvent) bool {
+				if updateEvent.ObjectNew.GetResourceVersion() == updateEvent.ObjectOld.GetResourceVersion() {
+					return false
+				}
+				if reflect.DeepEqual(updateEvent.ObjectNew.(*autoscalingv2.HorizontalPodAutoscaler).Spec, updateEvent.ObjectOld.(*autoscalingv2.HorizontalPodAutoscaler).Spec) {
 					return false
 				}
 				return true
@@ -186,62 +207,6 @@ func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		//
 		// Generic：未知的操作。非kubernetes集群的变更事件。在operator中自行使用
 		Complete(r)
-}
-
-func (r *AppReconciler) reconcileDeployment(ctx context.Context, app *aloystechv1.App) (ctrl.Result, error) {
-	deployName := app.Name + "-deploy"
-	logger := log.FromContext(ctx).WithName("reconcileDeployment").WithName(deployName)
-	// 创建使用模版，是为了可以在模块添加一些亲和性，资源请求这些配置,这步骤在前面是想判断一下deploy的内容是否需要更新
-	appDeploy := utils.NewDeployment(app)
-	if err := ctrl.SetControllerReference(app, appDeploy, r.Scheme); err != nil {
-		logger.Error(err, "Failed to set the controller reference for the app deployment,will requeue after a short time.")
-		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
-	}
-
-	dp := &appsv1.Deployment{}
-	err := r.Get(ctx, types.NamespacedName{
-		Namespace: app.Namespace,
-		Name:      deployName,
-	}, dp)
-	if err == nil {
-		logger.Info("The Deployment already exists.")
-		// 判断是否需要更新deploy,
-		if !reflect.DeepEqual(dp.Spec, appDeploy.Spec) {
-			// 不相同进行更新,这里想比较一样，看谁的版本谁最新的，进行更新那个版本
-			// 这里是想如果直接修改了deploy，那就按照修改的执行，但是不能确认修改了什么，监听的时候就很杂乱
-			// if dp.GetResourceVersion() > appDeploy.GetResourceVersion() {
-			// 	appDeploy.Spec.Replicas = dp.Spec.Replicas
-			// }
-			if err := r.Update(ctx, appDeploy); err != nil {
-				logger.Error(err, "Failed to update the deployment.")
-				return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
-			}
-			logger.Info("The Deployment updated.")
-		}
-		// 判断deploy status 是否需要更新
-		if !reflect.DeepEqual(dp.Status, app.Status.Workflow) {
-			app.Status.Workflow = dp.Status
-			// 更新Status
-			if err := r.Status().Update(ctx, app); err != nil {
-				logger.Error(err, "Failed to update the app status.")
-				return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
-			}
-			logger.Info("The Deployment status has been updated.")
-		}
-		return ctrl.Result{}, nil
-	}
-	// 错误不是NotFound 直接结束本轮
-	if !errors.IsNotFound(err) {
-		logger.Error(err, "Failed to get the Deployment,will requeue after a short time.")
-		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
-	}
-	logger.Info("The Deployment start creating.")
-	if err := r.Create(ctx, appDeploy); err != nil {
-		logger.Error(err, "Failed to create the deployment,will requeue after a short time.")
-		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
-	}
-	logger.Info("The Deployment has been created.")
-	return ctrl.Result{}, nil
 }
 
 // Complete--blder.Build(r)--blder.doController(r)-- blder.ctrl, err = newController(controllerName, blder.mgr, ctrlOptions)这个的返回值 复制给了blder.ctr
