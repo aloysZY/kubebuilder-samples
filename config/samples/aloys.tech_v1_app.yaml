@@ -12,6 +12,6 @@ spec:
   # TODO(user): Add fields here
   deployment:
     image: nginx
-    replace: 3
+    replace: 10
   service:
     port: 80

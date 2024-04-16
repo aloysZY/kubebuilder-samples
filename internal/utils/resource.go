@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"fmt"
+	"strings"
 	"text/template"
 
 	aloystechv1 "aloys.tech/api/v1"
@@ -51,11 +52,20 @@ func NewIngress(app *aloystechv1.App) *netv1.Ingress {
 
 func NewService(app *aloystechv1.App) *corev1.Service {
 	s := &corev1.Service{}
-	err := yaml.Unmarshal(parseTemplate("service", app), s)
-	if err != nil {
-		panic(err)
+	switch strings.ToUpper(app.Spec.Service.Type) {
+	case "NODEPORT":
+		err := yaml.Unmarshal(parseTemplate("service", app), s)
+		if err != nil {
+			panic(err)
+		}
+		return s
+	default:
+		err := yaml.Unmarshal(parseTemplate("service_nodePort", app), s)
+		if err != nil {
+			panic(err)
+		}
+		return s
 	}
-	return s
 }
 
 func NewHorizontalPodAutoscaler(app *aloystechv1.App) *autoscalingv2.HorizontalPodAutoscaler {

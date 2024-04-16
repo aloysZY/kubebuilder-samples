@@ -29,22 +29,19 @@ import (
 
 type MyDeployment struct {
 	Image   string `json:"image"`
-	Replace *int32 `json:"replace"`
+	Replace int    `json:"replace"`
 }
 
 type MyService struct {
-	Port *int32 `json:"port"`
+	Type     string `json:"type,omitempty"`
+	Port     int    `json:"port"`
+	NodePort int    `json:"nodePort,omitempty"`
 }
 
 type MyIngress struct {
 	IsEnable bool   `json:"is_enable,omitempty"`
 	Host     string `json:"host,omitempty"`
 	Path     string `json:"path,omitempty"`
-}
-
-type healthyReplicas struct {
-	Min *int32 `json:"min,omitempty"`
-	Max *int32 `json:"max,omitempty"`
 }
 
 // AppSpec defines the desired state of App
@@ -55,10 +52,9 @@ type AppSpec struct {
 
 	// Foo is an example field of App. Edit app_types.go to remove/update
 	// Foo string `json:"foo,omitempty"`
-	Deployment      MyDeployment    `json:"deployment"`
-	Service         MyService       `json:"service"`
-	Ingress         MyIngress       `json:"ingress,omitempty"`
-	healthyReplicas healthyReplicas `json:"healthy_replicas,omitempty"`
+	Deployment MyDeployment `json:"deployment"`
+	Service    MyService    `json:"service"`
+	Ingress    MyIngress    `json:"ingress,omitempty"`
 }
 
 // AppStatus defines the observed state of App

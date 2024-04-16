@@ -26,6 +26,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,6 +37,13 @@ import (
 )
 
 const GenericRequeueDuration = 1 * time.Minute
+
+func GetNamespacedName(name, suffix, namespace string) types.NamespacedName {
+	return types.NamespacedName{
+		Name:      name + suffix,
+		Namespace: namespace,
+	}
+}
 
 // AppReconciler reconciles a App object
 type AppReconciler struct {
@@ -91,7 +99,11 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	result, err = r.reconcileHorizontalPodAutoscaler(ctx, app)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile HorizontalPodAutoscaler.")
+		return result, err
 	}
+
+	// r.reconcileService(ctx, app)
+
 	logger.Info("All reconcile have been reconciled.")
 	return ctrl.Result{}, nil
 }

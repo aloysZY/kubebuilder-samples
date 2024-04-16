@@ -4,7 +4,8 @@ metadata:
   name: {{.ObjectMeta.Name}}-hpa
   namespace: {{.ObjectMeta.Namespace}}
 spec:
-  maxReplicas: {{ .Spec.Deployment.Replace }}
+#  maxReplicas: {{ .Spec.Deployment.Replace }}
+  maxReplicas: {{ $x := .Spec.Deployment.Replace }} {{ if gt $x 8 }} 8 {{ else }} {{ $x }} {{ end }}
   metrics:
     - resource:
         name: cpu
