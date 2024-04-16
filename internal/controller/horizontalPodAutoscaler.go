@@ -55,7 +55,7 @@ func (r *AppReconciler) reconcileHorizontalPodAutoscaler(ctx context.Context, ap
 		// 更新hpa status
 		if !reflect.DeepEqual(hpa.Status, appHPA.Status) {
 			logger.Info("This HPA Status has been updated. Update it.")
-			appHPA.Status = hpa.Status
+			app.Status.HorizontalPodAutoscalerStatus = hpa.Status
 			err := r.Status().Update(ctx, appHPA)
 			if err != nil {
 				logger.Error(err, "Failed to update the HPA,will requeue after a short time.")

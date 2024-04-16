@@ -41,9 +41,9 @@ func (r *AppReconciler) reconcileDeployment(ctx context.Context, app *aloystechv
 			logger.Info("The Deployment updated successfully.")
 		}
 		// 判断deploy status 是否需要更新
-		if !reflect.DeepEqual(dp.Status, app.Status.Workflow) {
+		if !reflect.DeepEqual(dp.Status, app.Status.DeploymentStatus) {
 			logger.Info("This Deployment Status has been updated. Update it.")
-			app.Status.Workflow = dp.Status
+			app.Status.DeploymentStatus = dp.Status
 			// 更新Status
 			if err := r.Status().Update(ctx, app); err != nil {
 				logger.Error(err, "Failed to update the app status,will requeue after a short time.")

@@ -18,7 +18,9 @@ package v1
 
 import (
 	appsv1 "k8s.io/api/apps/v1"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/api/networking/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -64,8 +66,10 @@ type AppStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	// HealthyReplicas *int32 `json:"healthy_replicas,omitempty"`
-	Workflow appsv1.DeploymentStatus `json:"workflow"`
-	Network  corev1.ServiceStatus    `json:"network"`
+	DeploymentStatus              appsv1.DeploymentStatus                     `json:"deployment_status"`
+	ServiceStatus                 corev1.ServiceStatus                        `json:"service_status"`
+	IngressStatus                 v1beta1.IngressStatus                       `json:"ingress_status"`
+	HorizontalPodAutoscalerStatus autoscalingv2.HorizontalPodAutoscalerStatus `json:"horizontal_pod_autoscaler_status"`
 }
 
 // +kubebuilder:object:root=true

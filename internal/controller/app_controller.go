@@ -159,7 +159,7 @@ func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				return true
 			},
 		})).
-		WithOptions(controller.Options{MaxConcurrentReconciles: 1}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: 5}).
 		// WithOptions(controller.Options{ 可以传入Controller初始化参数
 		// 	MaxConcurrentReconciles: 0, // Reconciles 最大并发数
 		// 	CacheSyncTimeout:        0, // 是指设置等待同步缓存的时间限制。默认2分钟
