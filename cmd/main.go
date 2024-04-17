@@ -137,6 +137,7 @@ func main() {
 		// 将 Manager 的 Scheme 传给 AppReconciler， get/list获取集群信息默认是先查询Scheme
 		Scheme: mgr.GetScheme(),
 		// 并且调用 SetupWithManager 方法传入 Manager 进行 Controller 的初始化
+		// Eventer: mgr.GetEventRecorderFor("playbook-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "App")
 		os.Exit(1)

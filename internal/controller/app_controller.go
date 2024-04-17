@@ -50,6 +50,7 @@ func GetNamespacedName(name, suffix, namespace string) types.NamespacedName {
 // AppReconciler reconciles a App object
 type AppReconciler struct {
 	client.Client
+	// Eventer record.EventRecorder
 	Scheme *runtime.Scheme
 }
 

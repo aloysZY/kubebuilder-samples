@@ -12,7 +12,7 @@ spec:
   # TODO(user): Add fields here
   deployment:
     image: nginx
-    replace: 10
+    replace: 4
   service:
     port: 80
   ingress:

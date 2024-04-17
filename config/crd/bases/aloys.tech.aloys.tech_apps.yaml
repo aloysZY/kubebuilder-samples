@@ -8,13 +8,27 @@ metadata:
 spec:
   group: aloys.tech.aloys.tech
   names:
+    categories:
+    - all
     kind: App
     listKind: AppList
     plural: apps
-    singular: app
+    singular: aloys
   scope: Namespaced
   versions:
-  - name: v1
+  - additionalPrinterColumns:
+    - description: The Docker Image of MyAPP
+      jsonPath: .spec.deployment.image
+      name: Image
+      type: string
+    - description: Replicas of deploy
+      jsonPath: .status.deploymentStatus.readyReplicas
+      name: Size
+      type: integer
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1
     schema:
       openAPIV3Schema:
         description: App is the Schema for the apps API
@@ -41,12 +55,15 @@ spec:
             properties:
               deployment:
                 description: |-
+                  INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                  Important: Run "make" to regenerate code after modifying this file
                   Foo is an example field of App. Edit app_types.go to remove/update
                   Foo string `json:"foo,omitempty"`
                 properties:
                   image:
                     type: string
                   replace:
+                    maximum: 8
                     type: integer
                 required:
                 - image
@@ -64,12 +81,12 @@ spec:
               service:
                 properties:
                   nodePort:
+                    maximum: 37000
+                    minimum: 30000
                     type: integer
                   port:
                     description: Type     string `json:"type,omitempty"`
                     type: integer
-                required:
-                - port
                 type: object
             required:
             - deployment
@@ -78,7 +95,7 @@ spec:
           status:
             description: AppStatus defines the observed state of App
             properties:
-              deployment_status:
+              deploymentStatus:
                 description: |-
                   INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
                   Important: Run "make" to regenerate code after modifying this file
@@ -915,6 +932,8 @@ spec:
                     type: array
                     x-kubernetes-list-type: atomic
                 type: object
+              selector:
+                type: string
               service_spec:
                 description: ServiceSpec describes the attributes that a user creates
                   on a service.
@@ -1252,13 +1271,18 @@ spec:
                     type: string
                 type: object
             required:
-            - deployment_status
+            - deploymentStatus
             - horizontal_pod_autoscaler_status
             - ingress_spec
+            - selector
             - service_spec
             type: object
         type: object
     served: true
     storage: true
     subresources:
+      scale:
+        labelSelectorPath: .status.selector
+        specReplicasPath: .spec.deployment.replicas
+        statusReplicasPath: .status.deploymentStatus.replicas
       status: {}
