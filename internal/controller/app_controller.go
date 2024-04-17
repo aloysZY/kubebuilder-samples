@@ -91,12 +91,11 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		// 找不到的错误不需要特殊处理，cr被删除，直接结束本次调用
 		if errors.IsNotFound(err) {
 			logger.Info("The app is not found.")
-			// 这里应该日志记录删除相关信息
 			return ctrl.Result{}, nil
 		}
 		// 其他错误类型，提示报错，然后1分钟后重试
 		logger.Error(err, "Failed to get the app,will requeue after a short time.")
-		return ctrl.Result{RequeueAfter: 1 * time.Minute}, err
+		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
 	}
 
 	var result ctrl.Result
@@ -124,7 +123,9 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	logger.Info("All reconcile have been reconciled.")
-	return ctrl.Result{}, nil
+	// 设置一个定时同步
+	return ctrl.Result{RequeueAfter: GenericRequeueDuration * 5}, nil
+	// return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -148,7 +149,7 @@ func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				if updateEvent.ObjectNew.GetResourceVersion() == updateEvent.ObjectOld.GetResourceVersion() {
 					return false
 				}
-				if reflect.DeepEqual(updateEvent.ObjectNew.(*aloystechv1.App).Spec.Deployment, updateEvent.ObjectOld.(*aloystechv1.App).Spec.Deployment) {
+				if reflect.DeepEqual(updateEvent.ObjectNew.(*aloystechv1.App).Spec, updateEvent.ObjectOld.(*aloystechv1.App).Spec) {
 					return false
 				}
 				return true

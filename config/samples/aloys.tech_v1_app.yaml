@@ -15,3 +15,4 @@ spec:
     replace: 4
   service:
     port: 80
+    nodePort: 30000
