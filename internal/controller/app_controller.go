@@ -25,6 +25,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -105,6 +106,11 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	result, err = r.reconcileService(ctx, app)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile Service.")
+		return result, err
+	}
+	result, err = r.reconcileIngress(ctx, app)
+	if err != nil {
+		logger.Error(err, "Failed to reconcile Ingress.")
 		return result, err
 	}
 
@@ -188,6 +194,24 @@ func (r *AppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					return false
 				}
 				if reflect.DeepEqual(updateEvent.ObjectNew.(*corev1.Service).Spec, updateEvent.ObjectOld.(*corev1.Service).Spec) {
+					return false
+				}
+				return true
+			},
+		})).
+		Owns(&netv1.Ingress{}, builder.WithPredicates(predicate.Funcs{
+			CreateFunc: func(createEvent event.CreateEvent) bool {
+				return false
+			},
+			DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
+				setupLog.Info("The ingress has been deleted,", "ingressName", deleteEvent.Object.GetName(), "namespace", deleteEvent.Object.GetNamespace())
+				return true
+			},
+			UpdateFunc: func(updateEvent event.UpdateEvent) bool {
+				if updateEvent.ObjectNew.GetResourceVersion() == updateEvent.ObjectOld.GetResourceVersion() {
+					return false
+				}
+				if reflect.DeepEqual(updateEvent.ObjectNew.(*netv1.Ingress).Spec, updateEvent.ObjectOld.(*netv1.Ingress).Spec) {
 					return false
 				}
 				return true

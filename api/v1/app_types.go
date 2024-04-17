@@ -20,7 +20,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/api/networking/v1beta1"
+	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -39,7 +39,7 @@ type MyService struct {
 }
 
 type MyIngress struct {
-	IsEnable bool   `json:"is_enable,omitempty"`
+	IsEnable bool   `json:"isEnable,omitempty"`
 	Host     string `json:"host,omitempty"`
 	Path     string `json:"path,omitempty"`
 }
@@ -64,7 +64,7 @@ type AppStatus struct {
 	// HealthyReplicas *int32 `json:"healthy_replicas,omitempty"`
 	DeploymentStatus              appsv1.DeploymentStatus                     `json:"deployment_status"`
 	ServiceSpec                   corev1.ServiceSpec                          `json:"service_spec"`
-	IngressStatus                 v1beta1.IngressStatus                       `json:"ingress_status"`
+	IngressSpec                   netv1.IngressSpec                           `json:"ingress_spec"`
 	HorizontalPodAutoscalerStatus autoscalingv2.HorizontalPodAutoscalerStatus `json:"horizontal_pod_autoscaler_status"`
 }
 
