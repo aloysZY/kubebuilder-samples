@@ -33,9 +33,9 @@ type MyDeployment struct {
 }
 
 type MyService struct {
-	Type     string `json:"type,omitempty"`
-	Port     int    `json:"port"`
-	NodePort int    `json:"nodePort,omitempty"`
+	// Type     string `json:"type,omitempty"`
+	Port     int `json:"port"`
+	NodePort int `json:"nodePort,omitempty"`
 }
 
 type MyIngress struct {
@@ -63,7 +63,7 @@ type AppStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 	// HealthyReplicas *int32 `json:"healthy_replicas,omitempty"`
 	DeploymentStatus              appsv1.DeploymentStatus                     `json:"deployment_status"`
-	ServiceStatus                 corev1.ServiceStatus                        `json:"service_status"`
+	ServiceSpec                   corev1.ServiceSpec                          `json:"service_spec"`
 	IngressStatus                 v1beta1.IngressStatus                       `json:"ingress_status"`
 	HorizontalPodAutoscalerStatus autoscalingv2.HorizontalPodAutoscalerStatus `json:"horizontal_pod_autoscaler_status"`
 }

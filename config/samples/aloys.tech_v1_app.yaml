@@ -15,3 +15,5 @@ spec:
     replace: 10
   service:
     port: 80
+    nodePort: 30002
+
