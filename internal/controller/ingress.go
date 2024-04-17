@@ -40,7 +40,7 @@ func (r *AppReconciler) reconcileIngress(ctx context.Context, app *aloystechv1.A
 				logger.Info("The Ingress updated successfully.")
 			}
 			// 判断ingress status 是否需要更新
-			if !reflect.DeepEqual(ing.Status, app.Status.DeploymentStatus) {
+			if !reflect.DeepEqual(ing.Status, app.Status.IngressSpec) {
 				logger.Info("This Ingress Status has been updated. Update it.")
 				app.Status.IngressSpec = ing.Spec
 				// 更新Status

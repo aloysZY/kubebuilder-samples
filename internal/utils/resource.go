@@ -14,7 +14,7 @@ import (
 )
 
 func parseTemplate(templateName string, app *aloystechv1.App) []byte {
-	tmpl, err := template.ParseFiles("internal/template/" + templateName + ".yml")
+	tmpl, err := template.ParseFiles("./internal/template/" + templateName + ".yml")
 	if err != nil {
 		panic(err)
 	}
