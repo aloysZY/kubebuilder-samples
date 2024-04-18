@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	corev1 "k8s.io/api/core/v1"
 	"reflect"
 
 	aloystechv1 "aloys.tech/api/v1"
@@ -80,7 +81,7 @@ func (r *AppReconciler) reconcileHorizontalPodAutoscaler(ctx context.Context, ap
 		logger.Error(err, "Failed to create the HPA,will requeue after a short time.")
 		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
 	}
-	r.Eventer.Eventf(appHPA, "Normal", "HPA created", "This %s HPA created.", appHPA.Name)
+	r.Eventer.Eventf(appHPA, corev1.EventTypeNormal, "HPA created", "This %s HPA created.", appHPA.Name)
 	logger.Info("The HPA has been created.")
 	return ctrl.Result{}, nil
 

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	corev1 "k8s.io/api/core/v1"
 	"reflect"
 
 	aloystechv1 "aloys.tech/api/v1"
@@ -36,11 +37,11 @@ func (r *AppReconciler) reconcileDeployment(ctx context.Context, app *aloystechv
 			logger.Info("This Deployment has been updated. Update it. ")
 			if err := r.Update(ctx, appDeploy); err != nil {
 				logger.Error(err, "Failed to update the deployment,will requeue after a short time.")
-				r.Eventer.Eventf(appDeploy, "Normal", "DeploymentUpdated", "Failed to update the %s deployment ,will requeue after a short time. namespace: %s", appDeploy.Name, appDeploy.Namespace)
+				r.Eventer.Eventf(appDeploy, corev1.EventTypeNormal, "DeploymentUpdated", "Failed to update the %s deployment ,will requeue after a short time. namespace: %s", appDeploy.Name, appDeploy.Namespace)
 				return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
 			}
 			logger.Info("The Deployment updated successfully.")
-			r.Eventer.Eventf(appDeploy, "Normal", "Deployment Updated", "The %s Deployment updated successfully. namespace:%s", appDeploy.Name, appDeploy.Namespace)
+			r.Eventer.Eventf(appDeploy, corev1.EventTypeNormal, "Deployment Updated", "The %s Deployment updated successfully. namespace:%s", appDeploy.Name, appDeploy.Namespace)
 		}
 		// 判断deploy status 是否需要更新
 		if !reflect.DeepEqual(dp.Status, app.Status.DeploymentStatus) {
@@ -49,10 +50,10 @@ func (r *AppReconciler) reconcileDeployment(ctx context.Context, app *aloystechv
 			// 更新Status
 			if err := r.Status().Update(ctx, app); err != nil {
 				logger.Error(err, "Failed to update the app status,will requeue after a short time.")
-				r.Eventer.Eventf(appDeploy, "Normal", "App status Updated", "Failed to update the %s status,will requeue after a short time. namespace: %s", app.Name, app.Namespace)
+				r.Eventer.Eventf(appDeploy, corev1.EventTypeNormal, "App status Updated", "Failed to update the %s status,will requeue after a short time. namespace: %s", app.Name, app.Namespace)
 				return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
 			}
-			r.Eventer.Eventf(appDeploy, "Normal", "Deployment  status Updated", "This Deployment status has been updated.")
+			r.Eventer.Eventf(appDeploy, corev1.EventTypeNormal, "Deployment  status Updated", "This Deployment status has been updated.")
 			logger.Info("The Deployment status has been updated successfully.")
 		}
 		return ctrl.Result{}, nil
@@ -68,7 +69,7 @@ func (r *AppReconciler) reconcileDeployment(ctx context.Context, app *aloystechv
 		logger.Error(err, "Failed to create the deployment,will requeue after a short time.")
 		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
 	}
-	r.Eventer.Eventf(appDeploy, "Normal", "Deployment created", "This Deployment created.")
+	r.Eventer.Eventf(appDeploy, corev1.EventTypeNormal, "Deployment created", "This Deployment created.")
 	logger.Info("The Deployment has been created.")
 	return ctrl.Result{}, nil
 }

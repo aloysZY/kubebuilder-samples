@@ -66,6 +66,7 @@ type AppReconciler struct {
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=ingresses/status,verbs=get;update
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers/status,verbs=get;update
+// +kubebuilder:rbac:groups=core,resources=events,verbs=create;patch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -92,11 +93,11 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		// 找不到的错误不需要特殊处理，cr被删除，直接结束本次调用
 		if errors.IsNotFound(err) {
 			logger.Info("The app is not found.")
+			r.Eventer.Eventf(app, corev1.EventTypeWarning, "app", "app %s not found.", app.Name)
 			return ctrl.Result{}, nil
 		}
 		// 其他错误类型，提示报错，然后1分钟后重试
 		logger.Error(err, "Failed to get the app,will requeue after a short time.")
-		r.Eventer.Eventf(app, "Wanging", "app", "app %s not found.", app.Name)
 		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
 	}
 
@@ -122,7 +123,7 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		logger.Error(err, "Failed to reconcile Ingress.")
 		return result, err
 	}
-	r.Eventer.Eventf(app, "Normal", "App", "%s All reconcile have been reconciled. namespace: %s", app.Name, app.Namespace)
+	r.Eventer.Eventf(app, corev1.EventTypeNormal, "App", "%s All reconcile have been reconciled. namespace: %s", app.Name, app.Namespace)
 	logger.Info("All reconcile have been reconciled.")
 	// 设置一个定时同步
 	return ctrl.Result{RequeueAfter: GenericRequeueDuration * 5}, nil
