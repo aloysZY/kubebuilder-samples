@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"k8s.io/client-go/tools/record"
 	"reflect"
 	"time"
 
@@ -50,8 +51,8 @@ func GetNamespacedName(name, suffix, namespace string) types.NamespacedName {
 // AppReconciler reconciles a App object
 type AppReconciler struct {
 	client.Client
-	// Eventer record.EventRecorder
-	Scheme *runtime.Scheme
+	Eventer record.EventRecorder
+	Scheme  *runtime.Scheme
 }
 
 // +kubebuilder:rbac:groups=aloys.tech.aloys.tech,resources=apps,verbs=get;list;watch;create;update;patch;delete
@@ -95,6 +96,7 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 		// 其他错误类型，提示报错，然后1分钟后重试
 		logger.Error(err, "Failed to get the app,will requeue after a short time.")
+		r.Eventer.Eventf(app, "Wanging", "app", "app %s not found.", app.Name)
 		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
 	}
 
@@ -105,7 +107,6 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		logger.Error(err, "Failed to reconcile Deployment.")
 		return result, err
 	}
-
 	result, err = r.reconcileHorizontalPodAutoscaler(ctx, app)
 	if err != nil {
 		logger.Error(err, "Failed to reconcile HorizontalPodAutoscaler.")
@@ -121,7 +122,7 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		logger.Error(err, "Failed to reconcile Ingress.")
 		return result, err
 	}
-
+	r.Eventer.Eventf(app, "Normal", "App", "%s All reconcile have been reconciled. namespace: %s", app.Name, app.Namespace)
 	logger.Info("All reconcile have been reconciled.")
 	// 设置一个定时同步
 	return ctrl.Result{RequeueAfter: GenericRequeueDuration * 5}, nil

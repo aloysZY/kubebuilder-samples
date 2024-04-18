@@ -80,6 +80,7 @@ func (r *AppReconciler) reconcileHorizontalPodAutoscaler(ctx context.Context, ap
 		logger.Error(err, "Failed to create the HPA,will requeue after a short time.")
 		return ctrl.Result{RequeueAfter: GenericRequeueDuration}, err
 	}
+	r.Eventer.Eventf(appHPA, "Normal", "HPA created", "This %s HPA created.", appHPA.Name)
 	logger.Info("The HPA has been created.")
 	return ctrl.Result{}, nil
 
