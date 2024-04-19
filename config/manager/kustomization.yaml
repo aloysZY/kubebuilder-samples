@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: app
-  newTag: v6
+  newTag: v7

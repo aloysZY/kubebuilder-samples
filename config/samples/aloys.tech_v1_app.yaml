@@ -15,4 +15,6 @@ spec:
     replace: 4
   service:
     port: 80
+  ingress:
+    isEnable: true
 

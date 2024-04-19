@@ -84,7 +84,6 @@ type AppStatus struct {
 // https://cloud.tencent.com/developer/article/1749750
 
 // App is the Schema for the apps API
-// +kubebuilder:object:root=true
 // +kubebuilder:printcolumn:name="Image",type="string",JSONPath=".spec.deployment.image",description="The Docker Image of MyAPP"
 // +kubebuilder:printcolumn:name="Size",type="integer",JSONPath=".status.deploymentStatus.readyReplicas",description="Replicas of deploy"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
@@ -98,6 +97,8 @@ type App struct {
 	Spec   AppSpec   `json:"spec,omitempty"`
 	Status AppStatus `json:"status,omitempty"`
 }
+
+// +kubebuilder:object:root=true
 
 // AppList contains a list of App
 type AppList struct {

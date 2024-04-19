@@ -93,7 +93,7 @@ func (r *AppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		// 找不到的错误不需要特殊处理，cr被删除，直接结束本次调用
 		if errors.IsNotFound(err) {
 			logger.Info("The app is not found.")
-			r.Eventer.Eventf(app, corev1.EventTypeWarning, "app", "app %s not found.", app.Name)
+			r.Eventer.Eventf(app, corev1.EventTypeWarning, "app", "app %s is not found.", app.Name)
 			return ctrl.Result{}, nil
 		}
 		// 其他错误类型，提示报错，然后1分钟后重试
